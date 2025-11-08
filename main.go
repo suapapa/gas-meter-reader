@@ -66,6 +66,12 @@ func main() {
 	flag.StringVar(&flagSingleShot, "i", "", "Single run on image file")
 	flag.Parse()
 
+	mqttClient, err := mqttdump.NewClient(mqttHostURI, mqttTopic)
+	if err != nil {
+		log.Fatalf("Error creating MQTT client: %v", err)
+	}
+	defer mqttClient.Stop()
+
 	go func() {
 		if flagSingleShot != "" {
 			imgFileNames, err := filepath.Glob(flagSingleShot)
@@ -88,11 +94,6 @@ func main() {
 			}
 		} else {
 			log.Println("Running MQTT client")
-			mqttClient, err := mqttdump.NewClient(mqttHostURI, mqttTopic)
-			if err != nil {
-				log.Fatalf("Error creating MQTT client: %v", err)
-			}
-			defer mqttClient.Stop()
 
 			hdlr := mqttReadGuageSubHandler
 			if err := mqttClient.Run(hdlr); err != nil {
