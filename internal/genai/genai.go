@@ -1,31 +1,10 @@
-// Copyright 2025 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// SPDX-License-Identifier: Apache-2.0
-
-// This sample shows how to upload a file to Gemini Files API and use it directly with Genkit.
-//
-// Usage:
-//   1. Set GEMINI_API_KEY environment variable
-//   2. Run: go run main.go
-
-package gemini
+package genai
 
 import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -37,17 +16,15 @@ import (
 
 // const geminiModel = "googleai/gemini-2.5-flash-lite"
 
-func float32Ptr(v float32) *float32 {
-	return &v
-}
-
 type Client struct {
 	g *genkit.Genkit
 	c *genai.Client
 
 	model        string
 	systemPrompt string
-	prompt       string
+	promptForImg string
+
+	lastRead string
 }
 
 func NewClient(ctx context.Context,
@@ -72,7 +49,7 @@ func NewClient(ctx context.Context,
 		c:            c,
 		model:        model,
 		systemPrompt: systemPrompt,
-		prompt:       prompt,
+		promptForImg: prompt,
 	}, nil
 }
 
@@ -121,7 +98,7 @@ func (c *Client) ReadGasGuagePic(
 			ai.NewUserMessage(
 				ai.NewMediaPart("image/jpeg", file.URI),
 				// ai.NewTextPart("Process the image and extract the reading and date."),
-				ai.NewTextPart(c.prompt),
+				ai.NewTextPart(c.promptForImg),
 			),
 		),
 		ai.WithConfig(&genai.GenerateContentConfig{
@@ -133,14 +110,24 @@ func (c *Client) ReadGasGuagePic(
 		return nil, fmt.Errorf("failed to analyze: %v", err)
 	}
 
+	if strings.Contains(out.Read, "?") {
+		log.Printf("Ambiguous digits found in the reading: %s", out.Read)
+		out.Read, err = c.guessAmbiouousDigits(ctx, out.Read)
+		if err != nil {
+			return nil, fmt.Errorf("failed to guess ambiguous digits: %v", err)
+		}
+	}
+
 	out.ItTakes = time.Since(start).String()
 	out.ReadAt = time.Now()
+
+	c.lastRead = out.Read
+
 	return out, nil
 }
 
-func (c *Client) ParseAmbiguousDigits(
+func (c *Client) guessAmbiouousDigits(
 	ctx context.Context,
-	previousValue float64,
 	ambiguousValueString string,
 ) (string, error) {
 
@@ -153,9 +140,13 @@ func (c *Client) ParseAmbiguousDigits(
 		ai.WithModelName(c.model),
 		ai.WithMessages(
 			ai.NewUserMessage(
-				ai.NewTextPart(fmt.Sprintf(fixAmbiguousPromptFmt, ambiguousValueString, previousValue)),
+				ai.NewTextPart(fmt.Sprintf(fixAmbiguousPromptFmt, ambiguousValueString, c.lastRead)),
 			),
 		),
+		ai.WithConfig(&genai.GenerateContentConfig{
+			TopK:        float32Ptr(10),
+			Temperature: float32Ptr(0.1),
+		}),
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate: %v", err)
@@ -171,6 +162,17 @@ type GasMeterReadResult struct {
 	ItTakes string    `json:"it_takes,omitempty"`
 }
 
+const fixAmbiguousPromptFmt = `The value “%s” represents the output of a analog-meter-reading analysis performed on an image.
+Uncertain digits within the reading are denoted by the “?” character.
+
+Using the previously recorded meter value "%s" as a reference (only if it is not empty),
+infer and replace the “?” characters to estimate the most probable complete reading.
+
+Instructions:
+- Return a string with the exact same length as the input value.
+- Output only the predicted value, without any explanations or additional text.
+`
+
 func containsOnly(s string, chars string) bool {
 	for _, c := range s {
 		if !strings.Contains(chars, string(c)) {
@@ -180,13 +182,6 @@ func containsOnly(s string, chars string) bool {
 	return true
 }
 
-const fixAmbiguousPromptFmt = `The value “%s” represents the output of a analog-meter-reading analysis performed on an image.
-Uncertain digits within the reading are denoted by the “?” character.
-
-Using the previously recorded meter value %f as a reference,
-infer and replace the “?” characters to estimate the most probable complete reading.
-
-Instructions:
-- Return a string with the exact same length as the input value.
-- Output only the predicted value, without any explanations or additional text.
-`
+func float32Ptr(v float32) *float32 {
+	return &v
+}

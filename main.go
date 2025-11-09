@@ -15,7 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/suapapa/mqvision/internal/concierge"
-	"github.com/suapapa/mqvision/internal/gemini"
+	"github.com/suapapa/mqvision/internal/genai"
 	"github.com/suapapa/mqvision/internal/mqttdump"
 )
 
@@ -27,16 +27,14 @@ var (
 	config *Config
 
 	sensorServer    *SensorServer
-	geminiClient    *gemini.Client
+	genaiClient     *genai.Client
 	conciergeClient *concierge.Client
 
 	chLuggage chan *Luggage
-
-	lastReadValue float64
 )
 
 type Luggage struct {
-	*gemini.GasMeterReadResult
+	*genai.GasMeterReadResult
 	SrcImageURL string `json:"src_image_url"`
 }
 
@@ -56,7 +54,7 @@ func main() {
 	}
 
 	log.Println("Creating Gemini client")
-	geminiClient, err = gemini.NewClient(ctx,
+	genaiClient, err = genai.NewClient(ctx,
 		config.Gemini.APIKey,
 		config.Gemini.Model,
 		config.Gemini.SystemPrompt, config.Gemini.Prompt,
@@ -86,21 +84,9 @@ func main() {
 			read, err := strconv.ParseFloat(readResult.Read, 64)
 			if err != nil {
 				log.Printf("Error parsing read value: %v", err)
-
-				readAgainStr, err := geminiClient.ParseAmbiguousDigits(ctx, lastReadValue, readResult.Read)
-				if err != nil {
-					log.Printf("Error parsing read value: %v", err)
-					continue
-				}
-
-				read, err = strconv.ParseFloat(readAgainStr, 64)
-				if err != nil {
-					log.Printf("Error parsing read value: %v", err)
-					continue
-				}
+				continue
 			}
 
-			lastReadValue = read
 			sensorServer.SetValue(read, readResult)
 			log.Printf("Updated sensor value: %s (%.3f)", readResult.Read, read)
 		}
@@ -137,7 +123,7 @@ func main() {
 			// Use the Readers in parallel
 			var wg sync.WaitGroup
 			var srcImgStoredURL string
-			var readResult *gemini.GasMeterReadResult
+			var readResult *genai.GasMeterReadResult
 			var conciergeErr, geminiErr error
 
 			wg.Add(2)
@@ -156,7 +142,7 @@ func main() {
 			// Read gauge using second reader
 			go func() {
 				defer wg.Done()
-				readResult, geminiErr = geminiClient.ReadGasGuagePic(context.Background(), pOuts[1])
+				readResult, geminiErr = genaiClient.ReadGasGuagePic(context.Background(), pOuts[1])
 				if geminiErr != nil {
 					log.Printf("Error reading gauge image: %v", geminiErr)
 				}
@@ -244,7 +230,7 @@ func mqttReadGuageSubHandler() io.WriteCloser {
 		wg.Add(2)
 
 		var srcImgStoredURL string
-		var readResult *gemini.GasMeterReadResult
+		var readResult *genai.GasMeterReadResult
 
 		go func() {
 			defer wg.Done()
@@ -262,7 +248,7 @@ func mqttReadGuageSubHandler() io.WriteCloser {
 			defer wg.Done()
 
 			var err error
-			readResult, err = geminiClient.ReadGasGuagePic(context.Background(), pOuts[1])
+			readResult, err = genaiClient.ReadGasGuagePic(context.Background(), pOuts[1])
 			if err != nil {
 				log.Printf("Error reading gauge image: %v", err)
 				return
