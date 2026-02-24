@@ -1,0 +1,11 @@
+.git
+.gitignore
+.dockerignore
+_img/
+sample/
+test/
+*.jpg
+*.sh
+README.md
+LICENSE
+config.yaml
