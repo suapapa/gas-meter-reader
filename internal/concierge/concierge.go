@@ -22,12 +22,12 @@ func NewClient(addr string, token string) *Client {
 }
 
 func (c *Client) PostImage(image io.Reader, mimeType string) (string, error) {
-	// curl -X POST http://localhost:8080/luggage \
+	// curl -X POST http://localhost:8080/api/v1/luggage \
 	// -F "file=@image.png" \
 	// -F "mime=image/png" \
 	// -F "ttl=10"
 
-	url := fmt.Sprintf("%s/luggage", c.addr)
+	url := fmt.Sprintf("%s/api/v1/luggage", c.addr)
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -74,5 +74,5 @@ func (c *Client) PostImage(image io.Reader, mimeType string) (string, error) {
 		return "", err
 	}
 
-	return c.addr + "/luggage/" + result.Key, nil
+	return c.addr + "/api/v1/luggage/" + result.Key, nil
 }
