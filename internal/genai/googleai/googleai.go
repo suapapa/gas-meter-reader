@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -130,6 +131,30 @@ func (c *Client) ReadGasGaugePic(
 	c.lastRead = out.Read
 
 	return out, nil
+}
+
+// ReadGasGaugePicFromURL downloads the JPEG at imageURL and delegates to ReadGasGaugePic.
+func (c *Client) ReadGasGaugePicFromURL(
+	ctx context.Context,
+	imageURL string,
+) (*genai.GasMeterReadResult, error) {
+	u := strings.TrimSpace(imageURL)
+	if u == "" {
+		return nil, fmt.Errorf("empty image URL")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch image: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch image: status %s", resp.Status)
+	}
+	return c.ReadGasGaugePic(ctx, resp.Body)
 }
 
 func (c *Client) guessAmbiguousDigits(

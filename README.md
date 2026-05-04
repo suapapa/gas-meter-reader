@@ -41,13 +41,14 @@ mqtt:
 concierge:
   addr: http://concierge-service-address
   token: concierge-token
-gemini:
-  api_key: your-gemini-api-key
-  model: googleai/gemini-2.5-flash-lite
-  system_prompt: |
-    [시스템 프롬프트 내용]
-  prompt: |
-    [프롬프트 내용]
+openai_compat:
+  base_url: https://api.openai.com/v1
+  api_key: sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  model: gpt-4o-mini
+system_prompt: |
+  [시스템 프롬프트 내용]
+prompt: |
+  [프롬프트 내용]
 ```
 
 2. 각 설정 항목 설명:

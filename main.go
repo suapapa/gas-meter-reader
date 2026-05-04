@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -149,50 +150,21 @@ func main() {
 			}
 			defer img.Close()
 
-			// Create a single Writer and multiple Readers
-			pIn, pOuts := SingleInMultiOutPipe(2)
-			defer pIn.Close()
-			defer pOuts[0].Close()
-			defer pOuts[1].Close()
+			imgBytes, err := io.ReadAll(img)
+			if err != nil {
+				log.Fatalf("Error reading image file: %v", err)
+			}
 
-			// Copy image data to the Writer (broadcasts to all Readers)
-			go func() {
-				defer pIn.Close()
-				io.Copy(pIn, img)
-			}()
+			srcImgStoredURL, err := conciergeClient.PostImage(bytes.NewReader(imgBytes), "image/jpeg")
+			if err != nil {
+				log.Printf("Error posting image to concierge: %v", err)
+				return
+			}
+			log.Printf("Posted image to concierge: %s", srcImgStoredURL)
 
-			// Use the Readers in parallel
-			var wg sync.WaitGroup
-			var srcImgStoredURL string
-			var readResult *genai.GasMeterReadResult
-			var conciergeErr, gaugeReadErr error
-
-			wg.Add(2)
-
-			// Post to concierge using first reader
-			go func() {
-				defer wg.Done()
-				srcImgStoredURL, conciergeErr = conciergeClient.PostImage(pOuts[0], "image/jpeg")
-				if conciergeErr != nil {
-					log.Printf("Error posting image to concierge: %v", conciergeErr)
-				} else {
-					log.Printf("Posted image to concierge: %s", srcImgStoredURL)
-				}
-			}()
-
-			// Read gauge using second reader
-			go func() {
-				defer wg.Done()
-				readResult, gaugeReadErr = genaiClient.ReadGasGaugePic(appCtx, pOuts[1])
-				if gaugeReadErr != nil {
-					log.Printf("Error reading gauge image: %v", gaugeReadErr)
-				}
-			}()
-
-			wg.Wait()
-
-			if gaugeReadErr != nil {
-				log.Printf("Error reading gauge image: %v", gaugeReadErr)
+			readResult, err := genaiClient.ReadGasGaugePicFromURL(appCtx, srcImgStoredURL)
+			if err != nil {
+				log.Printf("Error reading gauge image from URL: %v", err)
 				return
 			}
 
@@ -289,47 +261,35 @@ func main() {
 }
 
 func mqttReadGaugeSubHandler() io.WriteCloser {
-	pIn, pOuts := SingleInMultiOutPipe(2)
+	pr, pw := io.Pipe()
 
 	go func() {
-		defer pOuts[0].Close()
-		defer pOuts[1].Close()
+		defer pr.Close()
 
-		var wg sync.WaitGroup
-		wg.Add(2)
+		imgBytes, err := io.ReadAll(pr)
+		if err != nil {
+			log.Printf("Error reading MQTT image stream: %v", err)
+			return
+		}
 
-		var srcImgStoredURL string
-		var readResult *genai.GasMeterReadResult
+		srcImgStoredURL, err := conciergeClient.PostImage(bytes.NewReader(imgBytes), "image/jpeg")
+		if err != nil {
+			log.Printf("Error posting image to concierge: %v", err)
+			return
+		}
+		log.Printf("Posted image to concierge: %s", srcImgStoredURL)
 
-		go func() {
-			defer wg.Done()
+		readResult, err := genaiClient.ReadGasGaugePicFromURL(appCtx, srcImgStoredURL)
+		if err != nil {
+			log.Printf("Error reading gauge image from URL: %v", err)
+			return
+		}
+		if readResult == nil {
+			log.Printf("Read result is nil")
+			return
+		}
+		log.Printf("Read result: %+v", readResult)
 
-			var err error
-			srcImgStoredURL, err = conciergeClient.PostImage(pOuts[0], "image/jpeg")
-			if err != nil {
-				log.Printf("Error posting image to concierge: %v", err)
-				return
-			}
-			log.Printf("Posted image to concierge: %s", srcImgStoredURL)
-		}()
-
-		go func() {
-			defer wg.Done()
-
-			var err error
-			readResult, err = genaiClient.ReadGasGaugePic(appCtx, pOuts[1])
-			if err != nil {
-				log.Printf("Error reading gauge image: %v", err)
-				return
-			}
-			if readResult == nil {
-				log.Printf("Read result is nil")
-				return
-			}
-			log.Printf("Read result: %+v", readResult)
-		}()
-
-		wg.Wait()
 		l := &Luggage{
 			GasMeterReadResult: readResult,
 			SrcImageURL:        srcImgStoredURL,
@@ -337,7 +297,7 @@ func mqttReadGaugeSubHandler() io.WriteCloser {
 		chLuggage <- l
 	}()
 
-	return pIn
+	return pw
 }
 
 // func mqttFileDumpSubHandler() io.WriteCloser {

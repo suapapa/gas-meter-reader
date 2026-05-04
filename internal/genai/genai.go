@@ -9,6 +9,8 @@ import (
 // VisionClient analyzes a JPEG gas-meter image and returns structured read/date.
 type VisionClient interface {
 	ReadGasGaugePic(ctx context.Context, jpgReader io.Reader) (*GasMeterReadResult, error)
+	// ReadGasGaugePicFromURL runs the same analysis using an image reachable at imageURL (e.g. https).
+	ReadGasGaugePicFromURL(ctx context.Context, imageURL string) (*GasMeterReadResult, error)
 }
 
 type GasMeterReadResult struct {
