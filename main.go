@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -16,7 +18,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/suapapa/mqvision/internal/concierge"
 	"github.com/suapapa/mqvision/internal/genai"
+	"github.com/suapapa/mqvision/internal/genai/openaicompat"
 	"github.com/suapapa/mqvision/internal/mqttdump"
+	// "github.com/suapapa/mqvision/internal/genai/googleai"
 )
 
 var (
@@ -27,11 +31,40 @@ var (
 	config *Config
 
 	sensorServer    *SensorServer
-	genaiClient     *genai.Client
+	genaiClient     genai.VisionClient
 	conciergeClient *concierge.Client
 
 	chLuggage chan *Luggage
+
+	// appCtx is the process-wide context for downstream API calls (cancelled on shutdown).
+	appCtx context.Context
 )
+
+func newVisionClient(ctx context.Context, c *Config) (genai.VisionClient, error) {
+	base := strings.TrimSpace(c.OpenAICompat.BaseURL)
+	key := strings.TrimSpace(c.OpenAICompat.APIKey)
+	if base == "" || key == "" {
+		return nil, fmt.Errorf("configure openai_compat (base_url + api_key)")
+	}
+	log.Println("Creating OpenAI-compatible vision client")
+	return openaicompat.NewClient(
+		c.OpenAICompat.BaseURL,
+		c.OpenAICompat.APIKey,
+		c.OpenAICompat.Model,
+		c.SystemPrompt,
+		c.Prompt,
+	), nil
+	// if strings.TrimSpace(c.Gemini.APIKey) == "" {
+	// 	return nil, fmt.Errorf("configure openai_compat (base_url + api_key) or gemini (api_key)")
+	// }
+	// log.Println("Creating Gemini client")
+	// return googleai.NewClient(ctx,
+	// 	c.Gemini.APIKey,
+	// 	c.Gemini.Model,
+	// 	c.SystemPrompt,
+	// 	c.Prompt,
+	// )
+}
 
 type Luggage struct {
 	*genai.GasMeterReadResult
@@ -42,6 +75,7 @@ func main() {
 	var err error
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	appCtx = ctx
 
 	flag.StringVar(&flagPort, "p", "8080", "Port to listen on")
 	flag.StringVar(&flagSingleShot, "i", "", "Single run on a image file (testing purpose)")
@@ -53,14 +87,9 @@ func main() {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	log.Println("Creating Gemini client")
-	genaiClient, err = genai.NewClient(ctx,
-		config.Gemini.APIKey,
-		config.Gemini.Model,
-		config.Gemini.SystemPrompt, config.Gemini.Prompt,
-	)
+	genaiClient, err = newVisionClient(ctx, config)
 	if err != nil {
-		log.Fatalf("Error creating Gemini client: %v", err)
+		log.Fatalf("Error creating vision client: %v", err)
 	}
 
 	log.Println("Creating concierge client")
@@ -136,7 +165,7 @@ func main() {
 			var wg sync.WaitGroup
 			var srcImgStoredURL string
 			var readResult *genai.GasMeterReadResult
-			var conciergeErr, geminiErr error
+			var conciergeErr, gaugeReadErr error
 
 			wg.Add(2)
 
@@ -154,16 +183,16 @@ func main() {
 			// Read gauge using second reader
 			go func() {
 				defer wg.Done()
-				readResult, geminiErr = genaiClient.ReadGasGuagePic(context.Background(), pOuts[1])
-				if geminiErr != nil {
-					log.Printf("Error reading gauge image: %v", geminiErr)
+				readResult, gaugeReadErr = genaiClient.ReadGasGaugePic(appCtx, pOuts[1])
+				if gaugeReadErr != nil {
+					log.Printf("Error reading gauge image: %v", gaugeReadErr)
 				}
 			}()
 
 			wg.Wait()
 
-			if geminiErr != nil {
-				log.Printf("Error reading gauge image: %v", geminiErr)
+			if gaugeReadErr != nil {
+				log.Printf("Error reading gauge image: %v", gaugeReadErr)
 				return
 			}
 
@@ -180,7 +209,7 @@ func main() {
 		} else {
 			log.Println("Running MQTT client")
 
-			hdlr := mqttReadGuageSubHandler
+			hdlr := mqttReadGaugeSubHandler
 			if err := mqttClient.Run(hdlr); err != nil {
 				log.Fatalf("Error running MQTT client: %v", err)
 			}
@@ -259,7 +288,7 @@ func main() {
 	log.Println("Server stopped")
 }
 
-func mqttReadGuageSubHandler() io.WriteCloser {
+func mqttReadGaugeSubHandler() io.WriteCloser {
 	pIn, pOuts := SingleInMultiOutPipe(2)
 
 	go func() {
@@ -288,7 +317,7 @@ func mqttReadGuageSubHandler() io.WriteCloser {
 			defer wg.Done()
 
 			var err error
-			readResult, err = genaiClient.ReadGasGuagePic(context.Background(), pOuts[1])
+			readResult, err = genaiClient.ReadGasGaugePic(appCtx, pOuts[1])
 			if err != nil {
 				log.Printf("Error reading gauge image: %v", err)
 				return
