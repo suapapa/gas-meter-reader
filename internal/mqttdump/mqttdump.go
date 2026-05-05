@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/url"
+	"os"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -40,9 +41,13 @@ func NewClient(addr string, topic string) (*Client, error) {
 	chConnected := make(chan bool, 1)
 	chConnected <- false
 
+	hostname := "unknown"
+	if h, err := os.Hostname(); err == nil {
+		hostname = h
+	}
 	opts := paho.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s", host))
-	opts.SetClientID("gauge_pic_receiver")
+	opts.SetClientID(fmt.Sprintf("mqvision_%s_%d", hostname, os.Getpid()))
 	opts.SetUsername(username)
 	opts.SetPassword(password)
 	opts.OnConnect = newConnectHandler(chConnected, chErr)
