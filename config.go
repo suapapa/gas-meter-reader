@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/goccy/go-yaml"
 	"github.com/joho/godotenv"
@@ -30,9 +31,10 @@ type Config struct {
 	// 	Model  string
 	// }
 	OpenAICompat struct {
-		BaseURL string
-		APIKey  string
-		Model   string
+		BaseURL     string
+		APIKey      string
+		Model       string
+		IdleTimeout time.Duration
 	}
 	Mongo struct {
 		URI string
@@ -67,6 +69,13 @@ func LoadConfig(filename string) (*Config, error) {
 	config.OpenAICompat.BaseURL = os.Getenv("OPENAI_BASE_URL")
 	config.OpenAICompat.APIKey = os.Getenv("OPENAI_API_KEY")
 	config.OpenAICompat.Model = os.Getenv("OPENAI_MODEL")
+	if v := strings.TrimSpace(os.Getenv("OPENAI_IDLE_TIMEOUT")); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return nil, fmt.Errorf("OPENAI_IDLE_TIMEOUT: %w", err)
+		}
+		config.OpenAICompat.IdleTimeout = d
+	}
 
 	config.Mongo.URI = os.Getenv("MONGO_URI")
 	if config.Mongo.URI == "" {

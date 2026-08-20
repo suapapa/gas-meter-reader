@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -42,6 +43,9 @@ var (
 
 	// appCtx is the process-wide context for downstream API calls (cancelled on shutdown).
 	appCtx context.Context
+
+	// visionBusy gates MQTT→vision work so a slow local LLM does not pile up concurrent requests.
+	visionBusy atomic.Bool
 )
 
 // watchMQTTDisconnect closes exitCh if MQTT stays disconnected for longer than threshold.
@@ -90,6 +94,7 @@ func newVisionClient(ctx context.Context, c *Config) (genai.VisionClient, error)
 		c.ReadGasGauge.User,
 		c.FixAmbiguous.System,
 		c.FixAmbiguous.User,
+		c.OpenAICompat.IdleTimeout,
 	), nil
 	// if strings.TrimSpace(c.Gemini.APIKey) == "" {
 	// 	return nil, fmt.Errorf("configure openai_compat (base_url + api_key) or gemini (api_key)")
@@ -348,6 +353,12 @@ func mqttReadGaugeSubHandler() io.WriteCloser {
 			log.Printf("Error reading MQTT image stream: %v", err)
 			return
 		}
+
+		if !visionBusy.CompareAndSwap(false, true) {
+			log.Printf("Skipping gauge image (%d bytes): vision analysis already in progress", len(imgBytes))
+			return
+		}
+		defer visionBusy.Store(false)
 
 		var srcImgStoredURL string
 		var readResult *genai.GasMeterReadResult
