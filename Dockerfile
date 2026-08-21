@@ -1,5 +1,5 @@
 # --- frontend ---
-FROM node:22-alpine AS web
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -9,6 +9,8 @@ RUN npm run build
 # --- go binary ---
 # Build on the runner's native arch; cross-compile for TARGETOS/TARGETARCH.
 FROM --platform=$BUILDPLATFORM golang:alpine AS builder
+
+RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
@@ -25,10 +27,10 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o mqvision .
 
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates tzdata wget
-
 WORKDIR /app
 
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /app/mqvision .
 COPY --from=builder /app/prompt.yaml .
 COPY --from=web /web/dist ./web/dist
