@@ -76,6 +76,9 @@ func TestChatCompletionStream(t *testing.T) {
 		if !req.Stream {
 			t.Errorf("expected stream=true")
 		}
+		if _, ok := r.Header["X-Bf-Mcp-Include-Tools"]; !ok {
+			t.Errorf("expected X-Bf-Mcp-Include-Tools header to be present")
+		}
 
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)

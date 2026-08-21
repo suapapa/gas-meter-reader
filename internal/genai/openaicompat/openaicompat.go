@@ -193,6 +193,7 @@ func (c *Client) chatCompletion(ctx context.Context, messages []chatMessage, tem
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("x-bf-mcp-include-tools", "")
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
