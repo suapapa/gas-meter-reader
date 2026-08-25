@@ -1,9 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { WarningCircle } from '@phosphor-icons/react'
 import { fetchHealth, fetchHistory, fetchSensor } from './api'
 import { HealthBar } from './components/HealthBar'
 import { LatestReading } from './components/LatestReading'
 import { SourceImage } from './components/SourceImage'
 import type { HealthResponse, SensorReading, SensorResponse } from './types'
+import { useTheme } from './useTheme'
 
 const HistoryChart = lazy(() =>
   import('./components/HistoryChart').then((m) => ({ default: m.HistoryChart })),
@@ -19,6 +21,7 @@ function settledError(result: PromiseSettledResult<unknown>): string | null {
 }
 
 export default function App() {
+  const { theme, setTheme } = useTheme()
   const [sensor, setSensor] = useState<SensorResponse | null>(null)
   const [history, setHistory] = useState<SensorReading[]>([])
   const [health, setHealth] = useState<HealthResponse | null>(null)
@@ -73,29 +76,59 @@ export default function App() {
     return () => window.clearInterval(id)
   }, [refresh])
 
+  // Global Keyboard Shortcut: 'r' or 'R' to refresh
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault()
+          void refresh(true)
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [refresh])
+
   return (
     <>
       <a className="skip-link" href="#main">
         본문으로 건너뛰기
       </a>
+
       <div className="app">
         <HealthBar
           health={health}
           lastFetchedAt={lastFetchedAt}
           loading={loading}
           refreshing={refreshing}
+          theme={theme}
+          onThemeChange={setTheme}
           onRefresh={() => void refresh(true)}
         />
 
         {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
+          <div className="alert" role="alert">
+            <WarningCircle size={18} weight="bold" />
+            <span>{error}</span>
+          </div>
         )}
 
         <main id="main">
-          <section className="reading" aria-label="최신 검침">
-            <LatestReading sensor={sensor} loading={loading} />
+          <section className="telemetry-grid" aria-label="실시간 가스 검침 및 영상">
+            <LatestReading
+              sensor={sensor}
+              history={history}
+              loading={loading}
+            />
             <SourceImage
               src={sensor?.metadata?.src_image_url}
               loading={loading}
@@ -115,9 +148,12 @@ export default function App() {
 
         <footer className="footer">
           <p>
-            © Homin Lee &lt;
+            MQVision Gas Telemetry &copy; Homin Lee &lt;
             <a href="mailto:i@homin.dev">i@homin.dev</a>
             &gt;
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--muted-subtle)' }}>
+            Refresh interval: 15s (Key: R)
           </p>
         </footer>
       </div>

@@ -1,23 +1,29 @@
 ---
 name: MQVision
-description: Utility gas-meter monitoring dashboard — precise dials, quiet teal status
+description: Utility gas-meter monitoring dashboard - precision dials, calibrated dual theme, quiet teal patina status
 colors:
-  bg: "#f7fbfa"
-  surface: "#ffffff"
-  fg: "#141b24"
-  muted: "#454e58"
-  border: "#d7e0de"
-  border-strong: "#bac7c4"
-  primary: "#158374"
-  primary-ink: "#00463c"
-  accent: "#158374"
-  accent-soft: "#daf6ef"
-  danger: "#c53637"
-  danger-soft: "#ffe7e4"
-  chart: "#037465"
-  image-well: "#ecf4f2"
-  skeleton: "#e1eae8"
-  focus: "#158374"
+  light:
+    bg: "#f7fbfa"
+    surface: "#ffffff"
+    fg: "#141b24"
+    muted: "#454e58"
+    border: "#d7e0de"
+    primary: "#158374"
+    accent: "#158374"
+    accent-soft: "#daf6ef"
+    danger: "#c53637"
+    chart: "#037465"
+  dark:
+    bg: "#0e1318"
+    surface: "#141c23"
+    fg: "#f1f5f9"
+    muted: "#94a3b8"
+    border: "#263542"
+    primary: "#2dd4bf"
+    accent: "#2dd4bf"
+    accent-soft: "#133835"
+    danger: "#f87171"
+    chart: "#2dd4bf"
 typography:
   display:
     fontFamily: "Fira Code, ui-monospace, monospace"
@@ -27,7 +33,7 @@ typography:
     letterSpacing: "-0.025em"
   title:
     fontFamily: "Fira Sans, IBM Plex Sans, system-ui, sans-serif"
-    fontSize: "1.5rem"
+    fontSize: "1.25rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "-0.02em"
@@ -36,115 +42,46 @@ typography:
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: "normal"
-  label:
-    fontFamily: "Fira Sans, IBM Plex Sans, system-ui, sans-serif"
-    fontSize: "0.875rem"
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: "normal"
   mono:
     fontFamily: "Fira Code, ui-monospace, monospace"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.4
-    letterSpacing: "normal"
 rounded:
-  sm: "4px"
-  md: "8px"
-spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "24px"
-  2xl: "32px"
-  3xl: "48px"
-components:
-  status-ok:
-    backgroundColor: "{colors.accent-soft}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.sm}"
-    padding: "8px 12px"
-    height: "44px"
-  status-bad:
-    backgroundColor: "{colors.danger-soft}"
-    textColor: "{colors.danger}"
-    rounded: "{rounded.sm}"
-    padding: "8px 12px"
-    height: "44px"
-  button-refresh:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.sm}"
-    padding: "0 12px"
-    height: "44px"
-  button-refresh-hover:
-    backgroundColor: "{colors.accent-soft}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.sm}"
-    padding: "0 12px"
-    height: "44px"
-  chart-shell:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.fg}"
-    rounded: "{rounded.md}"
-    padding: "12px 8px"
+  sm: "6px"
+  md: "10px"
+  lg: "14px"
 ---
 
 ## Overview
 
-**North star:** Utility-closet tablet at noon — precise meter dials, quiet teal status.
+**North star:** Precision IoT telemetry station - calibrated gas meter dials, verified camera proof, and interactive historical trends with dual light/dark theme support.
 
-MQVision’s web UI is a single-purpose product surface: glance at the latest gas-meter reading, confirm the camera proof, and scan a 7-day trend. Design is **restrained**: near-pure surfaces, one teal accent for live/healthy state, danger red only for faults. Density and tabular numbers beat decoration. The tool should disappear into the monitoring task.
+MQVision is a specialized IoT monitoring dashboard: glance at the real-time gas meter digits, inspect camera proof in high resolution, and analyze consumption trends. Design is **restrained**: calibrated surfaces, dual light/dark modes, one teal accent for live and healthy states, danger red only for faults. Density and tabular numbers beat decoration.
 
-Canonical tokens live as OKLCH CSS variables in `web/src/index.css`. Hex values in this frontmatter are sRGB approximations for tooling that requires hex.
+Canonical tokens live as OKLCH CSS variables in `web/src/index.css`.
 
 ## Colors
 
-| Role | OKLCH (canonical) | Use |
-|------|-------------------|-----|
-| bg | `oklch(0.985 0.004 180)` | Page ground |
-| surface | `oklch(1 0 0)` | Panels, controls |
-| fg | `oklch(0.22 0.02 250)` | Primary text |
-| muted | `oklch(0.42 0.02 250)` | Labels, secondary |
-| primary / accent | `oklch(0.55 0.095 180)` | Brand + healthy status |
-| primary-ink | `oklch(0.35 0.07 180)` | Logo / title |
-| danger | `oklch(0.55 0.18 25)` | Faults, alerts |
-| chart | `oklch(0.5 0.09 180)` | Trend stroke |
-
-Accent ≤10% of the surface. Do not tint the page background warmly; mood lives in teal + typography.
+| Role | OKLCH (Canonical Light) | OKLCH (Canonical Dark) | Use |
+|------|-------------------------|------------------------|-----|
+| bg | `oklch(0.985 0.005 180)` | `oklch(0.14 0.015 240)` | Page ground |
+| surface | `oklch(1 0 0)` | `oklch(0.18 0.02 240)` | Cards, panels, modals |
+| fg | `oklch(0.18 0.02 250)` | `oklch(0.95 0.01 240)` | Primary typography |
+| muted | `oklch(0.44 0.02 250)` | `oklch(0.68 0.02 240)` | Secondary labels |
+| primary / accent | `oklch(0.52 0.11 180)` | `oklch(0.72 0.14 178)` | Brand and healthy indicators |
+| danger | `oklch(0.55 0.19 25)` | `oklch(0.68 0.20 25)` | Faults and alerts |
+| chart | `oklch(0.48 0.11 180)` | `oklch(0.74 0.14 178)` | Trend line and gradient |
 
 ## Typography
 
-- **UI / labels:** Fira Sans (system fallbacks). Fixed rem scale — no fluid `clamp` headings.
+- **UI / labels:** Fira Sans with `word-break: keep-all` and `line-break: strict` for Korean readability.
 - **Data / times / readings:** Fira Code with `font-variant-numeric: tabular-nums`.
-- Scale: 0.75 / 0.875 / 1 / 1.125 / 1.5 / 2.75 rem.
-- Section labels are sentence-case Korean at `text-sm` weight 600 — never uppercase tracked eyebrows.
-
-## Elevation
-
-Flat product UI. Separation via 1px borders (`--border`) and spacing, not shadows. Chart/status shells use a single border + `--radius` (8px). No glassmorphism, no wide drop shadows.
+- **Odometer dials:** Mechanical gas meter counter simulation with integer digits and 3-decimal precision drums.
 
 ## Components
 
-- **Topbar:** brand + status chips + refresh clock; wraps on narrow viewports.
-- **Status chip:** min 44×44; text states `정상` / `이상` / `확인 중`; fault detail inline (not `title`-only).
-- **Reading band:** value + meta list beside camera frame; divider, not card grid.
-- **History:** area chart (decorative to AT) + screen-reader summary + `<details>` data table.
-- **Refresh:** bordered button, `aria-busy` while loading.
-- **Skeleton:** shimmer placeholders; respect `prefers-reduced-motion`.
-
-## Do's and Don'ts
-
-**Do**
-- Prefer partial data (`Promise.allSettled`) over blanking the whole dashboard.
-- Keep touch targets ≥44px; focus rings via `:focus-visible`.
-- Use teal only for healthy/live cues; danger for faults.
-- Ship empty states that explain what will appear next.
-
-**Don't**
-- Don’t use identical bordered card grids or uppercase section kickers.
-- Don’t put error causes only in native `title` tooltips.
-- Don’t pair border + soft multi-layer shadows on chrome.
-- Don’t invent a second accent for decoration; stay restrained.
+- **Topbar:** Station logo, live status badges (App / MQTT), sync clock, theme segmented toggle (System / Light / Dark), and tactile refresh button (`R` shortcut).
+- **Latest Reading Card:** Gas meter digit drums, 직전 검침 대비 증감량 (delta), one-click clean copy with check feedback, and 4-tile metadata grid.
+- **Camera Frame Card:** Verification viewfinder with status badge, hover inspection cue, lightbox modal with zoom, and JPEG download.
+- **History Trend Section:** Range filter (24h / 3d / 7d / all), 4-metric summary ribbon (consumption, daily rate, min/max), Recharts AreaChart with custom gradient, and foldable CSV-exportable data table.

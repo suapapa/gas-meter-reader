@@ -11,17 +11,23 @@ const stateText = {
 } as const
 
 export function StatusChip({ label, state, detail }: Props) {
-  const showDetail = state === 'bad' && Boolean(detail)
+  const isBad = state === 'bad'
 
   return (
-    <div className={`status status--${state}`} role="status">
-      <span className="status__dot" aria-hidden />
-      <span className="status__body">
-        <span className="status__label">
-          {label} {stateText[state]}
-        </span>
-        {showDetail && <span className="status__detail">{detail}</span>}
-      </span>
+    <div
+      className={`status status--${state}`}
+      role="status"
+      title={detail ? `${label}: ${detail}` : undefined}
+    >
+      <div className="status__dot-wrap" aria-hidden>
+        <span className="status__dot" />
+        {state === 'ok' && <span className="status__dot-pulse" />}
+      </div>
+      <span className="status__label">{label}</span>
+      <span className="status__state">{stateText[state]}</span>
+      {isBad && detail && (
+        <span className="status__detail">({detail})</span>
+      )}
     </div>
   )
 }
